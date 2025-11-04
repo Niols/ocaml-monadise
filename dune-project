@@ -17,3 +17,5 @@
   (alcotest :with-test)
   (alcotest-lwt :with-test)
   (lwt :with-test)))
+
+(formatting (enabled_for dune))
