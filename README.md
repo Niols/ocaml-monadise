@@ -95,3 +95,19 @@ let s = Seq.map (fun x -> Some (x + 1)) (List.to_seq [1; 2; 3])
 let _ = monadise_1_1 Seq.iter (Option.map @@ Format.printf " %d") s
 (* => prints " 2 3 4" and returns Some () *)
 ```
+
+### How does it work?
+
+Monadise relies on effects to inject whatever monad it is you are using into direct-style code. Consider the function:
+
+``` ocaml
+val monadise : (('a -> 'b) -> 'c) -> (('a -> 'b m) -> 'c m)
+```
+
+It does three things:
+
+- It consumes a function, say `f : ('a -> 'b) -> 'c`, and a monadic `action : 'a -> 'b m` and will introduce an effect `Monadise_yield` consuming an `'a`.
+
+- It calls `f` on a function that performs the `Monadise_yield` effect. If `f = List.map`, for instance, this means that, every time `List.map` encounters a value, it performs `Monadise_yield` on it.
+
+- It introduces an effect handler for `Monadise_yield` that calls `action` on the `'a`, then `bind'` on the result, with a function that consumes the `'b` and resumes the computation. At the end of the computation, we call `return`.
