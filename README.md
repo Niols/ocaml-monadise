@@ -69,3 +69,29 @@ val Array.fold_lefti : ('acc -> int -> 'a -> 'acc) -> 'acc -> 'a Array.t -> 'acc
 (*                      \---------------/             \----------------/      *)
 (*                              3                              2              *)
 ```
+
+### Breaking the abstraction
+
+Monadise relies on effects, so types won't have your back to ensure that the effect is handled properly. It is therefore important to understand the limitations. Failing to do so will result in an unhandled `Monadise_yield` effect.
+
+There is just one rule: all the calls to the monadic action must take place in the context of the call to `monadise_<n>_<m>`. One example where this rule is easily broken is in `Seq`, for instance, in any function that returns a sequence:
+
+``` ocaml
+include Monadise.Make(Option)
+let s = monadise_1_1 Seq.map (fun x -> Some (x + 1)) (List.to_seq [1; 2; 3])
+(* s has type int Seq.t option *)
+let s = Option.get s
+(* s is an int Seq.t, but evaluating it runs the action above, and so: *)
+let () = Seq.iter (Format.printf " %d") s
+(* => Exception: Stdlib.Effect.Unhandled(Monadise_yield(1)) *)
+```
+
+In general, Monadise should not be used on any function that stores its action for later use. Not all functions from `Seq` are unsafe, and Monadise will work fine if called directly on `Seq.iter`, for instance, so it would be possible to do:
+
+``` ocaml
+include Monadise.Make(Option)
+let s = Seq.map (fun x -> Some (x + 1)) (List.to_seq [1; 2; 3])
+(* s has type int option Seq.t *)
+let _ = monadise_1_1 Seq.iter (Option.map @@ Format.printf " %d") s
+(* => prints " 2 3 4" and returns Some () *)
+```
