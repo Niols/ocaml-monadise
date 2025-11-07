@@ -178,31 +178,33 @@ module Make (M : Monad) : S with type 'a m = 'a M.t = struct
       exception Done
     end in
     fun action ->
-      let rec handler () = {
-        retc = M.return;
-        exnc = raise;
-        effc = (fun (type b') (e : b' Effect.t) ->
-          match e with
-          | E.Monadise_yield x ->
-            (* type b' = b at this point *)
-            Some (fun (k : (b', c) continuation) ->
-              M.bind'
-                (action x)
-                (fun y -> continue_with k y (handler ()))
-                ~on_error: (fun () ->
-                  (* clean up the stack *)
-                  discontinue_with k E.Done {
-                    retc = (fun _ -> assert false);
-                    effc = (fun _ -> assert false);
-                    exnc = (function E.Done -> () | exn -> raise exn)
-                  }
-                )
-            )
-          | _ -> None
-        );
-      }
-      in
-      continue_with (fiber @@ fun () -> f E.monadise_yield) () (handler ())
+      (* little trick to avoid allocating over and over again *)
+      let handler = ref (Obj.magic 0) in
+      handler :=
+        {
+          retc = M.return;
+          exnc = raise;
+          effc = (fun (type b') (e : b' Effect.t) ->
+            match e with
+            | E.Monadise_yield x ->
+              (* type b' = b at this point *)
+              Some (fun (k : (b', c) continuation) ->
+                M.bind'
+                  (action x)
+                  (fun y -> continue_with k y !handler)
+                  ~on_error: (fun () ->
+                    (* clean up the stack *)
+                    discontinue_with k E.Done {
+                      retc = (fun _ -> assert false);
+                      effc = (fun _ -> assert false);
+                      exnc = (function E.Done -> () | exn -> raise exn)
+                    }
+                  )
+              )
+            | _ -> None
+          );
+        };
+      continue_with (fiber @@ fun () -> f E.monadise_yield) () !handler
 
   let monadise_2 f = fun a -> monadise (fun a -> f (fun x y -> a (x, y))) (fun (x, y) -> a x y)
   let monadise_3 f = fun a -> monadise (fun a -> f (fun x y z -> a (x, y, z))) (fun (x, y, z) -> a x y z)
