@@ -241,3 +241,14 @@ module Make (M : Monad) : S with type 'a m = 'a M.t = struct
   let monadise_5_4 f = fun a x y z u -> monadise_5 (fun a -> f a x y z u) a
   let monadise_5_5 f = fun a x y z u v -> monadise_5 (fun a -> f a x y z u v) a
 end
+
+(** {2 Monadisation for some standard monads} *)
+
+module Option = Make(struct
+  type 'a t = 'a option
+  let return x = Some x
+  let bind' ~on_error x f =
+    match x with
+    | None -> on_error (); None
+    | Some x -> f x
+end)
