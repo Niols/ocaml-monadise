@@ -1,6 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
 
     git-hooks = {
       url = "github:cachix/git-hooks.nix";
@@ -13,56 +14,65 @@
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      git-hooks,
-      topiary,
-    }:
-    let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
-      opkgs = pkgs.ocamlPackages;
+    inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [ "x86_64-linux" ];
 
-      inherit (topiary.lib.${system}) gitHookBinFor gitHookFor;
-      myTopiaryConfig = {
-        includeLanguages = [
-          "ocaml"
-          "ocaml_interface"
-        ];
-      };
+      perSystem =
+        {
+          self',
+          pkgs,
+          inputs',
+          ...
+        }:
+        let
+          opkgs = pkgs.ocamlPackages;
 
-    in
-    {
-      packages.${system}.default = opkgs.buildDunePackage {
-        pname = "monadise";
-        version = "dev";
-        src = ./.;
+          inherit (inputs'.topiary.lib) gitHookBinFor gitHookFor;
+          myTopiaryConfig = {
+            includeLanguages = [
+              "ocaml"
+              "ocaml_interface"
+            ];
+          };
 
-        doCheck = true;
-        checkInputs = with opkgs; [ alcotest ];
-      };
+        in
+        {
+          packages.default = opkgs.buildDunePackage {
+            pname = "monadise";
+            version = "dev";
+            src = ./.;
 
-      devShells.${system}.default = pkgs.mkShell {
-        inputsFrom = [ self.packages.${system}.default ];
-        inherit (self.checks.${system}.git-hooks) shellHook;
-        buildInputs = self.checks.${system}.git-hooks.enabledPackages ++ [
-          (gitHookBinFor myTopiaryConfig)
-        ];
-      };
+            doCheck = true;
+            checkInputs = with opkgs; [ alcotest ];
+          };
 
-      checks.${system}.git-hooks = git-hooks.lib.${system}.run {
-        src = ./.;
-        hooks = {
-          deadnix.enable = true;
-          dune-fmt.enable = true;
-          dune-opam-sync.enable = true;
-          nixfmt-rfc-style.enable = true;
-          topiary-latest = gitHookFor myTopiaryConfig // {
-            enable = true;
+          devShells.default = pkgs.mkShell {
+            inputsFrom = [ self'.packages.default ];
+            inherit (self'.checks.git-hooks) shellHook;
+            buildInputs = self'.checks.git-hooks.enabledPackages ++ [
+              (gitHookBinFor myTopiaryConfig)
+            ];
+          };
+
+          checks.git-hooks = inputs'.git-hooks.lib.run {
+            src = ./.;
+            hooks = {
+              deadnix.enable = true;
+              dune-fmt.enable = true;
+              dune-opam-sync.enable = true;
+              nixfmt-rfc-style.enable = true;
+              topiary-latest = gitHookFor myTopiaryConfig // {
+                enable = true;
+              };
+            };
           };
         };
-      };
+
+      ## Improve the way `inputs'` are computed by also handling the case of
+      ## flakes having a `lib.${system}` attribute.
+      ##
+      perInput = system: flake: if flake ? lib.${system} then { lib = flake.lib.${system}; } else { };
     };
 
   nixConfig = {
