@@ -18,4 +18,11 @@
   (alcotest-lwt :with-test)
   (lwt :with-test)))
 
+(package
+ (name monadise-lwt)
+ (synopsis "Monadise direct-style functions easily")
+ (depends
+  (ocaml (>= 5.0))
+  lwt))
+
 (formatting (enabled_for dune))

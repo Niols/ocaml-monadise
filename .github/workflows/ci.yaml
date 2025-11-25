@@ -33,7 +33,9 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build (and run unit tests)
-        run: nix build .#packages.x86_64-linux.default -vL --no-link
+        run: |
+          nix build .#packages.x86_64-linux.monadise -vL --no-link
+          nix build .#packages.x86_64-linux.monadise-lwt -vL --no-link
 
   run-git-hooks:
     name: Run git-hooks checks

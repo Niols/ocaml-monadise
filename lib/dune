@@ -1,3 +1,10 @@
 (library
  (public_name monadise)
- (name monadise))
+ (name monadise)
+ (modules monadise))
+
+(library
+ (public_name monadise-lwt)
+ (name monadise_lwt)
+ (modules monadise_lwt)
+ (libraries monadise lwt))

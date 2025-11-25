@@ -41,17 +41,26 @@
 
         in
         {
-          packages.default = opkgs.buildDunePackage {
+          packages.monadise = opkgs.buildDunePackage {
             pname = "monadise";
             version = "dev";
             src = ./.;
-
             doCheck = true;
             checkInputs = with opkgs; [ alcotest ];
           };
 
+          packages.monadise-lwt = opkgs.buildDunePackage {
+            pname = "monadise-lwt";
+            version = "dev";
+            src = ./.;
+            buildInputs = [ self'.packages.monadise ] ++ (with opkgs; [ lwt ]);
+          };
+
           devShells.default = pkgs.mkShell {
-            inputsFrom = [ self'.packages.default ];
+            inputsFrom = with self'.packages; [
+              monadise
+              monadise-lwt
+            ];
             inherit (self'.checks.git-hooks) shellHook;
             buildInputs = self'.checks.git-hooks.enabledPackages ++ [
               (gitHookBinFor myTopiaryConfig)
