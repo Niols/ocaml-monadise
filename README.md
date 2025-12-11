@@ -1,5 +1,8 @@
 # Monadise
 
+> [!WARNING]
+> This repository was merged into [lesboloss-es/camelotte](https://github.com/LesBoloss-es/camelotte/). It is unmaintained.
+
 ### The problem
 
 Small library attempting to help in the following situations:
